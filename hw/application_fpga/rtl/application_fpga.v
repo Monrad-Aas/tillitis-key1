@@ -48,6 +48,7 @@ module application_fpga(
   localparam UDS_PREFIX         = 6'h02;
   localparam UART_PREFIX        = 6'h03;
   localparam TOUCH_SENSE_PREFIX = 6'h04;
+  localparam WATCHDOG_PREFIX    = 6'h05;
   localparam FW_RAM_PREFIX      = 6'h10;
   localparam TK1_PREFIX         = 6'h3f;
 
@@ -106,6 +107,15 @@ module application_fpga(
   reg  [31 : 0] timer_write_data;
   wire [31 : 0] timer_read_data;
   wire          timer_ready;
+
+  /* verilator lint_off UNOPTFLAT */
+  reg           watchdog_cs;
+  /* verilator lint_on UNOPTFLAT */
+  reg           watchdog_we;
+  reg  [7 : 0]  watchdog_address;
+  reg  [31 : 0] watchdog_write_data;
+  wire [31 : 0] watchdog_read_data;
+  wire          watchdog_ready;
 
   /* verilator lint_off UNOPTFLAT */
   reg           uds_cs;
@@ -267,6 +277,19 @@ module application_fpga(
                   );
 
 
+  watchdog watchdog_inst(
+                   .clk(clk),
+                   .reset_n(reset_n),
+
+                   .cs(watchdog_cs),
+                   .we(watchdog_we),
+                   .address(watchdog_address),
+                   .write_data(watchdog_write_data),
+                   .read_data(watchdog_read_data),
+		   .ready(watchdog_ready)
+                  );
+
+
   uds uds_inst(
                .clk(clk),
                .reset_n(reset_n),
@@ -390,6 +413,11 @@ module application_fpga(
       timer_address       = cpu_addr[9 : 2];
       timer_write_data    = cpu_wdata;
 
+      watchdog_cs         = 1'h0;
+      watchdog_we         = |cpu_wstrb;
+      watchdog_address    = cpu_addr[9 : 2];
+      watchdog_write_data = cpu_wdata;
+
       uds_cs              = 1'h0;
       uds_address         = cpu_addr[9 : 2];
 
@@ -438,6 +466,12 @@ module application_fpga(
                 timer_cs        = 1'h1;
 	        muxed_rdata_new = timer_read_data;
 	        muxed_ready_new = timer_ready;
+              end
+
+              WATCHDOG_PREFIX: begin
+                watchdog_cs        = 1'h1;
+	        muxed_rdata_new = watchdog_read_data;
+	        muxed_ready_new = watchdog_ready;
               end
 
               UDS_PREFIX: begin

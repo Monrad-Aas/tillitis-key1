@@ -59,6 +59,8 @@ VERILOG_SRCS = \
 	$(P)/core/picorv32/rtl/picorv32.v \
 	$(P)/core/timer/rtl/timer_core.v \
 	$(P)/core/timer/rtl/timer.v \
+	$(P)/core/watchdog/rtl/watchdog_core.v \
+	$(P)/core/watchdog/rtl/watchdog.v \
 	$(P)/core/uds/rtl/uds.v \
 	$(P)/core/touch_sense/rtl/touch_sense.v \
 	$(P)/core/tk1/rtl/tk1.v \
