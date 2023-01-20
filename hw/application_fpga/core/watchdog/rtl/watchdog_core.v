@@ -14,15 +14,17 @@
 `default_nettype none
 
 module watchdog_core(
-                  input wire           clk,
-                  input wire           reset_n,
+                     input wire           clk,
+                     input wire           reset_n,
 
-                  input wire [31 : 0]  prescaler_init,
-                  input wire [31 : 0]  watchdog_init,
-                  input wire           start_stop,
+                     input wire [27 : 0]  timer_init,
+                     input wire           start,
+                     input wire           stop,
 
-                  output wire [31 : 0] curr_watchdog,
-                  output wire          ready
+                     output wire [27 : 0] curr_timer,
+                     output wire          running,
+
+		     output wire          timeout
                   );
 
 
@@ -30,28 +32,26 @@ module watchdog_core(
   // Internal constant and parameter definitions.
   //----------------------------------------------------------------
   localparam CTRL_IDLE      = 2'h0;
-  localparam CTRL_PRESCALER = 2'h1;
-  localparam CTRL_WATCHDOG  = 2'h2;
+  localparam CTRL_START     = 2'h1;
+  localparam CTRL_COUNTDOWN = 2'h2;
+  localparam CTRL_TIMEOUT   = 2'h3;
 
 
   //----------------------------------------------------------------
   // Registers including update variables and write enable.
   //----------------------------------------------------------------
-  reg          ready_reg;
-  reg          ready_new;
-  reg          ready_we;
+  reg          running_reg;
+  reg          running_new;
+  reg          running_we;
 
-  reg [31 : 0] prescaler_reg;
-  reg [31 : 0] prescaler_new;
-  reg          prescaler_we;
-  reg          prescaler_set;
-  reg          prescaler_dec;
+  reg [27 : 0] timer_reg;
+  reg [27 : 0] timer_new;
+  reg          timer_set;
+  reg          timer_dec;
+  reg          timer_we;
 
-  reg [31 : 0] watchdog_reg;
-  reg [31 : 0] watchdog_new;
-  reg          watchdog_we;
-  reg          watchdog_set;
-  reg          watchdog_dec;
+  reg          timeout_reg;
+  reg          timeout_new;
 
   reg [1 : 0]  core_ctrl_reg;
   reg [1 : 0]  core_ctrl_new;
@@ -61,8 +61,9 @@ module watchdog_core(
   //----------------------------------------------------------------
   // Concurrent connectivity for ports etc.
   //----------------------------------------------------------------
-  assign curr_watchdog = watchdog_reg;
-  assign ready      = ready_reg;
+  assign curr_timer = timer_reg;
+  assign running    = running_reg;
+  assign timeout    = timeout_reg;
 
 
   //----------------------------------------------------------------
@@ -72,23 +73,21 @@ module watchdog_core(
     begin: reg_update
       if (!reset_n)
         begin
-          ready_reg     <= 1'h1;
-	  prescaler_reg <= 32'h0;
-	  watchdog_reg     <= 32'h0;
+          running_reg   <= 1'h0;
+	  timer_reg     <= 28'h0;
+	  timeout_reg   <= 1'h0;
           core_ctrl_reg <= CTRL_IDLE;
         end
       else
         begin
-          if (ready_we) begin
-            ready_reg <= ready_new;
+	  timeout_reg <= timeout_new;
+
+          if (running_we) begin
+            running_reg <= running_new;
 	  end
 
-	  if (prescaler_we) begin
-	    prescaler_reg <= prescaler_new;
-	  end
-
-	  if (watchdog_we) begin
-	    watchdog_reg <= watchdog_new;
+	  if (timer_we) begin
+	    timer_reg <= timer_new;
 	  end
 
           if (core_ctrl_we) begin
@@ -99,39 +98,21 @@ module watchdog_core(
 
 
   //----------------------------------------------------------------
-  // prescaler_ctr
+  // timer_ctr
   //----------------------------------------------------------------
   always @*
-    begin : prescaler_ctr
-      prescaler_new = 32'h0;
-      prescaler_we  = 1'h0;
+    begin : timer_ctr
+      timer_new = 28'h0;
+      timer_we  = 1'h0;
 
-      if (prescaler_set) begin
-	prescaler_new = prescaler_init;
-	prescaler_we  = 1'h1;
+      if (timer_set) begin
+	timer_new = timer_init;
+	timer_we  = 1'h1;
       end
-      else if (prescaler_dec) begin
-	prescaler_new = prescaler_reg - 1'h1;
-	prescaler_we  = 1'h1;
-      end
-    end
 
-
-  //----------------------------------------------------------------
-  // watchdog_ctr
-  //----------------------------------------------------------------
-  always @*
-    begin : watchdog_ctr
-      watchdog_new = 32'h0;
-      watchdog_we  = 1'h0;
-
-      if (watchdog_set) begin
-	watchdog_new = watchdog_init;
-	watchdog_we  = 1'h1;
-      end
-      else if (watchdog_dec) begin
-	watchdog_new = watchdog_reg - 1'h1;
-	watchdog_we  = 1'h1;
+      else if (timer_dec) begin
+	timer_new = timer_reg - 1'h1;
+	timer_we  = 1'h1;
       end
     end
 
@@ -141,80 +122,53 @@ module watchdog_core(
   //----------------------------------------------------------------
   always @*
     begin : core_ctrl
-      ready_new     = 1'h0;
-      ready_we      = 1'h0;
-      prescaler_set = 1'h0;
-      prescaler_dec = 1'h0;
-      watchdog_set     = 1'h0;
-      watchdog_dec     = 1'h0;
+      timer_set     = 1'h0;
+      timer_dec     = 1'h0;
+      running_new   = 1'h0;
+      running_we    = 1'h0;
+      timeout_new   = 1'h0;
       core_ctrl_new = CTRL_IDLE;
       core_ctrl_we  = 1'h0;
 
       case (core_ctrl_reg)
         CTRL_IDLE: begin
-          if (start_stop)
-            begin
-              ready_new     = 1'h0;
-              ready_we      = 1'h1;
-	      prescaler_set = 1'h1;
-	      watchdog_set     = 1'h1;
-	      if (prescaler_init == 0) begin
-		core_ctrl_new = CTRL_WATCHDOG;
-		core_ctrl_we  = 1'h1;
-		end else begin
-		  core_ctrl_new = CTRL_PRESCALER;
-		  core_ctrl_we  = 1'h1;
-		end
-            end
+          if (start) begin
+            running_new   = 1'h1;
+            running_we    = 1'h1;
+	    core_ctrl_new = CTRL_START;
+	    core_ctrl_we  = 1'h1;
+	  end
         end
 
+        CTRL_START: begin
+	  timer_set     = 1'h1;
+	  core_ctrl_new = CTRL_COUNTDOWN;
+	  core_ctrl_we  = 1'h1;
+        end
 
-	CTRL_PRESCALER: begin
-	  if (start_stop) begin
-            ready_new     = 1'h1;
-            ready_we      = 1'h1;
-            core_ctrl_new = CTRL_IDLE;
+	CTRL_COUNTDOWN: begin
+	  timer_dec = 1'h1;
+	  if (stop) begin
+            running_new   = 1'h0;
+            running_we    = 1'h1;
+	    core_ctrl_new = CTRL_IDLE;
+	  end
+
+	  else if (start) begin
+	    core_ctrl_we  = 1'h1;
+            core_ctrl_new = CTRL_START;
             core_ctrl_we  = 1'h1;
 	  end
 
-	  else begin
-	    if (prescaler_reg == 1) begin
-              core_ctrl_new = CTRL_WATCHDOG;
-              core_ctrl_we  = 1'h1;
-	    end else begin
-	      prescaler_dec = 1'h1;
-	    end
-	  end
-	end
-
-
-	CTRL_WATCHDOG: begin
-	  if (start_stop) begin
-            ready_new     = 1'h1;
-            ready_we      = 1'h1;
-            core_ctrl_new = CTRL_IDLE;
+	  else if (timer_reg == 28'h0) begin
+            core_ctrl_new = CTRL_TIMEOUT;
             core_ctrl_we  = 1'h1;
 	  end
-
-	  else begin
-	    if (watchdog_reg == 1) begin
-              ready_new     = 1'h1;
-              ready_we      = 1'h1;
-              core_ctrl_new = CTRL_IDLE;
-              core_ctrl_we  = 1'h1;
-	    end
-
-	    else begin
-	      watchdog_dec = 1'h1;
-
-	      if (prescaler_init > 0) begin
-		prescaler_set = 1'h1;
-		core_ctrl_new = CTRL_PRESCALER;
-		core_ctrl_we  = 1'h1;
-	      end
-	    end
-	  end
 	end
+
+        CTRL_TIMEOUT: begin
+	  timeout_new = 1'h1;
+        end
 
         default: begin
         end
