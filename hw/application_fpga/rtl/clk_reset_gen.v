@@ -18,6 +18,8 @@
 
 module clk_reset_gen #(parameter RESET_CYCLES = 200)
   (
+   input wire  watchdog_timeout,
+
    output wire clk,
    output wire rst_n
    );
@@ -108,6 +110,11 @@ module clk_reset_gen #(parameter RESET_CYCLES = 200)
       rst_n_new   = 1'h1;
       rst_ctr_new = 8'h0;
       rst_ctr_we  = 1'h0;
+
+      if (watchdog_timeout) begin
+        rst_ctr_new = 8'h0;
+        rst_ctr_we  = 1'h1;
+      end
 
       if (rst_ctr_reg < RESET_CYCLES) begin
         rst_n_new   = 1'h0;

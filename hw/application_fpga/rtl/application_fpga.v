@@ -116,6 +116,7 @@ module application_fpga(
   reg  [31 : 0] watchdog_write_data;
   wire [31 : 0] watchdog_read_data;
   wire          watchdog_ready;
+  wire          watchdog_timeout;
 
   /* verilator lint_off UNOPTFLAT */
   reg           uds_cs;
@@ -165,7 +166,11 @@ module application_fpga(
   // Module instantiations.
   //----------------------------------------------------------------
   clk_reset_gen #(.RESET_CYCLES(200))
-  reset_gen_inst(.clk(clk), .rst_n(reset_n));
+  reset_gen_inst(
+		 .watchdog_timeout(watchdog_timeout),
+		 .clk(clk),
+		 .rst_n(reset_n)
+		);
 
 
   picorv32 #(
@@ -278,16 +283,18 @@ module application_fpga(
 
 
   watchdog watchdog_inst(
-                   .clk(clk),
-                   .reset_n(reset_n),
+			 .clk(clk),
+			 .reset_n(reset_n),
 
-                   .cs(watchdog_cs),
-                   .we(watchdog_we),
-                   .address(watchdog_address),
-                   .write_data(watchdog_write_data),
-                   .read_data(watchdog_read_data),
-		   .ready(watchdog_ready)
-                  );
+			 .cs(watchdog_cs),
+			 .we(watchdog_we),
+			 .address(watchdog_address),
+			 .write_data(watchdog_write_data),
+			 .read_data(watchdog_read_data),
+			 .ready(watchdog_ready),
+
+			 .timeout(watchdog_timeout)
+			);
 
 
   uds uds_inst(
