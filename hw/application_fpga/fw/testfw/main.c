@@ -24,6 +24,8 @@ volatile uint32_t *timer_ctrl      = (volatile uint32_t *)TK1_MMIO_TIMER_CTRL;
 volatile uint32_t *trng_status     = (volatile uint32_t *)TK1_MMIO_TRNG_STATUS;
 volatile uint32_t *trng_entropy    = (volatile uint32_t *)TK1_MMIO_TRNG_ENTROPY;
 volatile uint32_t *fw_blake2s_addr = (volatile uint32_t *)TK1_MMIO_TK1_BLAKE2S;
+volatile uint32_t *watchdog_ctrl   = (volatile uint32_t *)TK1_MMIO_WATCHDOG_CTRL;
+volatile uint32_t *watchdog_timer_init = (volatile uint32_t *)TK1_MMIO_WATCHDOG_TIMER_INIT;
 
 // Function pointer to blake2s()
 volatile int (*fw_blake2s)(void *, unsigned long, const void *, unsigned long, const void *, unsigned long, blake2s_ctx *);
@@ -296,9 +298,15 @@ int main()
 	}
 	puts("\r\n");
 
-	puts("Now echoing what you type...\r\n");
+	puts("Starting watchdog\r\n");
+	*watchdog_timer_init = 5 * 18000000; // 5 seconds
+	*watchdog_ctrl = (1 << TK1_MMIO_WATCHDOG_CTRL_START_BIT);
+
+	puts("Now echoing what you type. If you don't type anything for 5 seconds the system will reset.\r\n");
 	for (;;) {
 		in = readbyte(); // blocks
+		// Reset watchdog
+		*watchdog_ctrl = (1 << TK1_MMIO_WATCHDOG_CTRL_START_BIT);
 		writebyte(in);
 	}
 }
