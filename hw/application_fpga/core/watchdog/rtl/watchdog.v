@@ -41,7 +41,6 @@ module watchdog(
   localparam STATUS_RUNNING_BIT = 0;
 
   localparam ADDR_TIMER_INIT    = 8'h0a;
-  localparam ADDR_CURR_TIMER    = 8'h0b;
 
   // At 18 MHz the default timeout value corresponds to 7.45s.
   localparam DEFAULT_TIMEOUT_VALUE = 28'h7ff_ffff;
@@ -90,7 +89,6 @@ module watchdog(
                      .start(start_reg),
                      .stop(stop_reg),
 
-		     .curr_timer(core_curr_timer),
                      .running(core_running),
                      .timeout(core_timeout)
                     );
@@ -152,10 +150,6 @@ module watchdog(
 
           if (address == ADDR_TIMER_INIT) begin
 	    tmp_read_data[27 : 0] = timer_init_reg;
-	  end
-
-	  if (address == ADDR_CURR_TIMER) begin
-	    tmp_read_data[27 : 0] = core_curr_timer;
 	  end
         end
       end

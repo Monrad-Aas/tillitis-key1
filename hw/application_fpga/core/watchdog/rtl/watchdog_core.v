@@ -21,9 +21,7 @@ module watchdog_core(
                      input wire           start,
                      input wire           stop,
 
-                     output wire [27 : 0] curr_timer,
                      output wire          running,
-
 		     output wire          timeout
                   );
 
@@ -61,7 +59,6 @@ module watchdog_core(
   //----------------------------------------------------------------
   // Concurrent connectivity for ports etc.
   //----------------------------------------------------------------
-  assign curr_timer = timer_reg;
   assign running    = running_reg;
   assign timeout    = timeout_reg;
 

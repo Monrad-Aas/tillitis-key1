@@ -37,10 +37,9 @@ module tb_watchdog_core();
   reg           tb_reset_n;
   reg           tb_start;
   reg           tb_stop;
-  reg  [31 : 0] tb_prescaler;
-  reg  [31 : 0] tb_watchdog;
-  wire [31 : 0] tb_curr_watchdog;
-  wire          tb_ready;
+  reg  [27 : 0] tb_timer_init;
+  wire          tb_running;
+  wire          tb_timeout;
 
 
   //----------------------------------------------------------------
@@ -49,12 +48,11 @@ module tb_watchdog_core();
   watchdog_core dut(
 		 .clk(tb_clk),
                  .reset_n(tb_reset_n),
-                 .prescaler_value(tb_prescaler),
-		 .watchdog_value(tb_watchdog),
+                 .timer_init(tb_timer_init),
 		 .start(tb_start),
 		 .stop(tb_stop),
-		 .curr_watchdog(tb_curr_watchdog),
-		 .ready(tb_ready)
+		 .running(tb_running),
+		 .timeout(tb_timeout)
                 );
 
 
@@ -99,21 +97,16 @@ module tb_watchdog_core();
       $display("Cycle: %08d", cycle_ctr);
       $display("");
       $display("Inputs and outputs:");
-      $display("start: 0x%1x, stop: 0x%1x, ready: 0x%1x",
-	       dut.start, dut.stop, dut.ready);
-      $display("prescaler_value: 0x%08x, watchdog_value: 0x%08x",
-	       dut.prescaler_value, dut.watchdog_value);
+      $display("start: 0x%1x, stop: 0x%1x",
+	       dut.start, dut.stop);
+      $display("running: 0x%1x, timeout: 0x%1x",
+	       tb_running, tb_timeout);
       $display("");
       $display("Internal state:");
-      $display("prescaler_reg: 0x%08x, prescaler_new: 0x%08x",
-	       dut.prescaler_reg, dut.prescaler_new);
-      $display("prescaler_set: 0x%1x, prescaler_dec: 0x%1x",
-	       dut.prescaler_set, dut.prescaler_dec);
-      $display("");
-      $display("watchdog_reg: 0x%08x, watchdog_new: 0x%08x",
-	       dut.watchdog_reg, dut.watchdog_new);
-      $display("watchdog_set: 0x%1x, watchdog_dec: 0x%1x",
-	       dut.watchdog_set, dut.watchdog_dec);
+      $display("timer_reg: 0x%08x, timer_new: 0x%08x",
+	       dut.timer_reg, dut.timer_new);
+      $display("timer_set: 0x%1x, timer_dec: 0x%1x",
+	       dut.timer_set, dut.timer_dec);
       $display("");
       $display("core_ctrl_reg: 0x%02x, core_ctrl_new: 0x%02x, core_ctrl_we: 0x%1x",
 	       dut.core_ctrl_reg, dut.core_ctrl_new, dut.core_ctrl_we);
@@ -143,30 +136,6 @@ module tb_watchdog_core();
 
 
   //----------------------------------------------------------------
-  // wait_ready()
-  //
-  // Wait for the ready flag in the dut to be set.
-  //
-  // Note: It is the callers responsibility to call the function
-  // when the dut is actively processing and will in fact at some
-  // point set the flag.
-  //----------------------------------------------------------------
-  task wait_ready;
-    begin
-      #(2 * CLK_PERIOD);
-      while (!tb_ready)
-        begin
-          #(CLK_PERIOD);
-          if (DUMP_WAIT)
-            begin
-              dump_dut_state();
-            end
-        end
-    end
-  endtask // wait_ready
-
-
-  //----------------------------------------------------------------
   // init_sim()
   //
   // Initialize all counters and testbed functionality as well
@@ -182,10 +151,9 @@ module tb_watchdog_core();
       tb_clk     = 0;
       tb_reset_n = 1;
 
-      tb_start     = 1'h0;
-      tb_stop      = 1'h0;
-      tb_prescaler = 32'h0;
-      tb_watchdog     = 32'h0;
+      tb_start      = 1'h0;
+      tb_stop       = 1'h0;
+      tb_timer_init = 38'h0;
     end
   endtask // init_sim
 
@@ -204,14 +172,12 @@ module tb_watchdog_core();
 
       $display("--- test1 started.");
       dump_dut_state();
-      tb_prescaler = 32'h6;
-      tb_watchdog     = 32'h9;
+      tb_timer_init = 28'h6;
       #(CLK_PERIOD);
       tb_start = 1'h1;
       #(CLK_PERIOD);
       tb_start = 1'h0;
-      wait_ready();
-      #(CLK_PERIOD);
+      #(10 * CLK_PERIOD);
       tb_monitor = 0;
       $display("--- test1 completed.");
       $display("");
