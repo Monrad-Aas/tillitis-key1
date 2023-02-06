@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 - Tillitis AB
+ * Copyright (C) 2022, 2023 - Tillitis AB
  * SPDX-License-Identifier: GPL-2.0-only
  */
 
@@ -11,6 +11,7 @@
 // clang-format off
 static volatile uint32_t *can_rx = (volatile uint32_t *)TK1_MMIO_UART_RX_STATUS;
 static volatile uint32_t *rx =     (volatile uint32_t *)TK1_MMIO_UART_RX_DATA;
+static volatile uint32_t *has_rx = (volatile uint32_t *)TK1_MMIO_UART_RX_BYTES;
 static volatile uint32_t *can_tx = (volatile uint32_t *)TK1_MMIO_UART_TX_STATUS;
 static volatile uint32_t *tx =     (volatile uint32_t *)TK1_MMIO_UART_TX_DATA;
 static volatile uint32_t *led =    (volatile uint32_t *)TK1_MMIO_TK1_LED;
@@ -152,5 +153,23 @@ void read(uint8_t *buf, size_t nbytes)
 {
 	for (int n = 0; n < nbytes; n++) {
 		buf[n] = readbyte();
+	}
+}
+
+void read2(uint8_t *buf, size_t nbytes)
+{
+	int n = 0;
+	for (;;) {
+		if (n >= nbytes) {
+			break;
+		}
+		// TODO hopefully right byte-order here (has_rx uses 9 bits)
+		uint32_t avail = *has_rx;
+		if (avail > 0) {
+			for (int i = 0; i < avail; i++) {
+				buf[n + i] = *rx;
+			}
+			n += avail;
+		}
 	}
 }

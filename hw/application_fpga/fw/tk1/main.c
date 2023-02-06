@@ -244,7 +244,7 @@ int main()
 
 		memset(cmd, 0, CMDLEN_MAXBYTES);
 		// Now we know the size of the cmd frame, read it all
-		read(cmd, hdr.len);
+		read2(cmd, hdr.len);
 
 		// Is it for us?
 		if (hdr.endpoint != DST_FW) {
