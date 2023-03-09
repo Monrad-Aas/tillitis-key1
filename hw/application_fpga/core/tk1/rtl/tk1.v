@@ -84,6 +84,12 @@ module tk1(
   localparam ADDR_CPU_MON_FIRST = 8'h61;
   localparam ADDR_CPU_MON_LAST  = 8'h62;
 
+  localparam ADDR_BLAKE2S_A    = 8'h80;
+  localparam ADDR_BLAKE2S_B    = 8'h81;
+  localparam ADDR_BLAKE2S_C    = 8'h82;
+  localparam ADDR_BLAKE2S_D    = 8'h83;
+  localparam ADDR_BLAKE2S_M0   = 8'h84;
+  localparam ADDR_BLAKE2S_M1   = 8'h85;
 
   localparam TK1_NAME0    = 32'h746B3120; // "tk1 "
   localparam TK1_NAME1    = 32'h6d6b6466; // "mkdf"
@@ -142,6 +148,19 @@ module tk1(
   reg [31 : 0] cpu_mon_last_reg;
   reg          cpu_mon_last_we;
 
+  reg [31 : 0] blake2s_a_reg;
+  reg          blake2s_a_we;
+  reg [31 : 0] blake2s_b_reg;
+  reg          blake2s_b_we;
+  reg [31 : 0] blake2s_c_reg;
+  reg          blake2s_c_we;
+  reg [31 : 0] blake2s_d_reg;
+  reg          blake2s_d_we;
+  reg [31 : 0] blake2s_m0_reg;
+  reg          blake2s_m0_we;
+  reg [31 : 0] blake2s_m1_reg;
+  reg          blake2s_m1_we;
+
 
   //----------------------------------------------------------------
   // Wires.
@@ -153,6 +172,24 @@ module tk1(
   /* verilator lint_on UNOPTFLAT */
 
   reg [2 : 0]  muxed_led;
+
+  reg [31 : 0] blake2s_a1;
+  reg [31 : 0] blake2s_a2;
+  reg [31 : 0] blake2s_b1;
+  reg [31 : 0] blake2s_b2;
+  reg [31 : 0] blake2s_b3;
+  reg [31 : 0] blake2s_b4;
+  reg [31 : 0] blake2s_c1;
+  reg [31 : 0] blake2s_c2;
+  reg [31 : 0] blake2s_d1;
+  reg [31 : 0] blake2s_d2;
+  reg [31 : 0] blake2s_d3;
+  reg [31 : 0] blake2s_d4;
+
+  reg [31 : 0] blake2s_a_prim;
+  reg [31 : 0] blake2s_b_prim;
+  reg [31 : 0] blake2s_c_prim;
+  reg [31 : 0] blake2s_d_prim;
 
 
   //----------------------------------------------------------------
@@ -224,6 +261,10 @@ module tk1(
 	cpu_mon_last_reg  <= 32'h0;
  	ram_aslr_reg      <= 15'h0;
 	ram_scramble_reg  <= 32'h0;
+	blake2s_a_reg     <= 32'h0;
+	blake2s_b_reg     <= 32'h0;
+	blake2s_c_reg     <= 32'h0;
+	blake2s_d_reg     <= 32'h0;
       end
 
       else begin
@@ -290,9 +331,64 @@ module tk1(
 	if (cpu_mon_last_we) begin
 	  cpu_mon_last_reg <= write_data;
 	end
+
+	if (blake2s_a_we) begin
+	  blake2s_a_reg <= write_data;
+	end
+
+	if (blake2s_b_we) begin
+	  blake2s_b_reg <= write_data;
+	end
+
+	if (blake2s_c_we) begin
+	  blake2s_c_reg <= write_data;
+	end
+
+	if (blake2s_d_we) begin
+	  blake2s_d_reg <= write_data;
+	end
+
+	if (blake2s_m0_we) begin
+	  blake2s_m0_reg <= write_data;
+	end
+
+	if (blake2s_m1_we) begin
+	  blake2s_m1_reg <= write_data;
+	end
       end
     end // reg_update
 
+
+  //----------------------------------------------------------------
+  // blak2s_G_function
+  //----------------------------------------------------------------
+  always @*
+    begin : blak2s_G_function
+      blake2s_a1 = blake2s_a_reg + blake2s_b_reg + blake2s_m0_reg;
+
+      blake2s_d1 = blake2s_d_reg ^ blake2s_a1;
+      blake2s_d2 = {blake2s_d1[15 : 0], blake2s_d1[31 : 16]};
+
+      blake2s_c1 = blake2s_c_reg + blake2s_d2;
+
+      blake2s_b1 = blake2s_b_reg ^ blake2s_c1;
+      blake2s_b2 = {blake2s_b1[11 : 0], blake2s_b1[31 : 12]};
+
+      blake2s_a2 = blake2s_a1 + blake2s_b2 + blake2s_m1_reg;
+
+      blake2s_d3 = blake2s_d2 ^ blake2s_a2;
+      blake2s_d4 = {blake2s_d3[7 : 0], blake2s_d3[31 : 8]};
+
+      blake2s_c2 = blake2s_c1 + blake2s_d4;
+
+      blake2s_b3 = blake2s_b2 ^ blake2s_c2;
+      blake2s_b4 = {blake2s_b3[6 : 0], blake2s_b3[31 : 7]};
+
+      blake2s_a_prim = blake2s_a2;
+      blake2s_b_prim = blake2s_b4;
+      blake2s_c_prim = blake2s_c2;
+      blake2s_d_prim = blake2s_d4;
+    end
 
   //----------------------------------------------------------------
   // trap_led_logic
@@ -360,6 +456,12 @@ module tk1(
       cpu_mon_first_we = 1'h0;
       cpu_mon_last_we  = 1'h0;
       cpu_mon_en_we    = 1'h0;
+      blake2s_a_we     = 1'h0;
+      blake2s_b_we     = 1'h0;
+      blake2s_c_we     = 1'h0;
+      blake2s_d_we     = 1'h0;
+      blake2s_m0_we    = 1'h0;
+      blake2s_m1_we    = 1'h0;
       tmp_read_data    = 32'h0;
       tmp_ready        = 1'h0;
 
@@ -429,6 +531,34 @@ module tk1(
 	    if (!cpu_mon_en_reg) begin
 	      cpu_mon_last_we = 1'h1;
 	    end
+
+	  if (address == ADDR_BLAKE2S_A) begin
+	      blake2s_a_we = 1'h1;
+	    end
+
+	  if (address == ADDR_BLAKE2S_A) begin
+	      blake2s_a_we = 1'h1;
+	    end
+
+	  if (address == ADDR_BLAKE2S_B) begin
+	      blake2s_b_we = 1'h1;
+	    end
+
+	  if (address == ADDR_BLAKE2S_C) begin
+	      blake2s_c_we = 1'h1;
+	    end
+
+	  if (address == ADDR_BLAKE2S_D) begin
+	      blake2s_d_we = 1'h1;
+	    end
+
+	  if (address == ADDR_BLAKE2S_M0) begin
+	      blake2s_m0_we = 1'h1;
+	    end
+
+	  if (address == ADDR_BLAKE2S_M1) begin
+	      blake2s_m1_we = 1'h1;
+	    end
 	  end
 	end
 
@@ -468,6 +598,22 @@ module tk1(
 
           if (address == ADDR_BLAKE2S) begin
             tmp_read_data = blake2s_addr_reg;
+	  end
+
+          if (address == ADDR_BLAKE2S_A) begin
+            tmp_read_data = blake2s_a_prim;
+	  end
+
+          if (address == ADDR_BLAKE2S_B) begin
+            tmp_read_data = blake2s_b_prim;
+	  end
+
+          if (address == ADDR_BLAKE2S_C) begin
+            tmp_read_data = blake2s_c_prim;
+	  end
+
+          if (address == ADDR_BLAKE2S_D) begin
+            tmp_read_data = blake2s_d_prim;
 	  end
 
 	  if ((address >= ADDR_CDI_FIRST) && (address <= ADDR_CDI_LAST)) begin
