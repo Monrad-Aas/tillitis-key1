@@ -84,6 +84,11 @@ module tk1(
   localparam ADDR_CPU_MON_FIRST = 8'h61;
   localparam ADDR_CPU_MON_LAST  = 8'h62;
 
+  localparam ADDR_CPU_B2S_OP0   = 8'h80;
+  localparam ADDR_CPU_B2S_OP1   = 8'h81;
+  localparam ADDR_CPU_B2S_OP2   = 8'h82;
+  localparam ADDR_CPU_B2S_RES0  = 8'h84;
+  localparam ADDR_CPU_B2S_RES1  = 8'h85;
 
   localparam TK1_NAME0    = 32'h746B3120; // "tk1 "
   localparam TK1_NAME1    = 32'h6d6b6466; // "mkdf"
@@ -142,6 +147,13 @@ module tk1(
   reg [31 : 0] cpu_mon_last_reg;
   reg          cpu_mon_last_we;
 
+  reg [31 : 0] blake2s_op0_reg;
+  reg          blake2s_op0_we;
+  reg [31 : 0] blake2s_op1_reg;
+  reg          blake2s_op1_we;
+  reg [31 : 0] blake2s_op2_reg;
+  reg          blake2s_op2_we;
+
 
   //----------------------------------------------------------------
   // Wires.
@@ -153,6 +165,9 @@ module tk1(
   /* verilator lint_on UNOPTFLAT */
 
   reg [2 : 0]  muxed_led;
+
+  reg [31 : 0] blake2s_res0;
+  reg [31 : 0] blake2s_res1;
 
 
   //----------------------------------------------------------------
@@ -224,6 +239,9 @@ module tk1(
 	cpu_mon_last_reg  <= 32'h0;
  	ram_aslr_reg      <= 15'h0;
 	ram_scramble_reg  <= 32'h0;
+	blake2s_op0_reg   <= 32'h0;
+	blake2s_op1_reg   <= 32'h0;
+	blake2s_op2_reg   <= 32'h0;
       end
 
       else begin
@@ -290,8 +308,30 @@ module tk1(
 	if (cpu_mon_last_we) begin
 	  cpu_mon_last_reg <= write_data;
 	end
+
+	if (blake2s_op0_we) begin
+	  blake2s_op0_reg <= write_data;
+	end
+
+	if (blake2s_op1_we) begin
+	  blake2s_op1_reg <= write_data;
+	end
+
+	if (blake2s_op2_we) begin
+	  blake2s_op2_reg <= write_data;
+	end
       end
     end // reg_update
+
+
+  //----------------------------------------------------------------
+  // blake2s G function logic
+  //----------------------------------------------------------------
+  always @*
+    begin : b2_gf_logic
+      blake2s_res0 = blake2s_op0_reg + blake2s_op1_reg + blake2s_op2_reg;
+      blake2s_res1 = ~blake2s_op0_reg ^ blake2s_op1_reg ^ blake2s_op2_reg;
+    end
 
 
   //----------------------------------------------------------------
@@ -360,6 +400,9 @@ module tk1(
       cpu_mon_first_we = 1'h0;
       cpu_mon_last_we  = 1'h0;
       cpu_mon_en_we    = 1'h0;
+      blake2s_op0_we   = 1'h0;
+      blake2s_op1_we   = 1'h0;
+      blake2s_op2_we   = 1'h0;
       tmp_read_data    = 32'h0;
       tmp_ready        = 1'h0;
 
@@ -429,6 +472,17 @@ module tk1(
 	    if (!cpu_mon_en_reg) begin
 	      cpu_mon_last_we = 1'h1;
 	    end
+
+	  if (address == ADDR_CPU_B2S_OP0) begin
+	    blake2s_op0_we = 1'h1;
+	  end
+
+	  if (address == ADDR_CPU_B2S_OP1) begin
+	    blake2s_op1_we = 1'h1;
+	  end
+
+	  if (address == ADDR_CPU_B2S_OP2) begin
+	    blake2s_op2_we = 1'h1;
 	  end
 	end
 
@@ -470,6 +524,14 @@ module tk1(
             tmp_read_data = blake2s_addr_reg;
 	  end
 
+          if (address == ADDR_CPU_B2S_RES0) begin
+            tmp_read_data = blake2s_res0;
+	  end
+
+          if (address == ADDR_CPU_B2S_RES1) begin
+            tmp_read_data = blake2s_res1;
+	  end
+
 	  if ((address >= ADDR_CDI_FIRST) && (address <= ADDR_CDI_LAST)) begin
 	    tmp_read_data = cdi_mem[address[2 : 0]];
 	  end
@@ -479,8 +541,9 @@ module tk1(
 	      tmp_read_data = udi_mem[address[0]];
 	    end
 	  end
+	end
         end
-      end
+      end // if (we)
     end // api
 
 endmodule // tk1
