@@ -37,6 +37,11 @@ module tk1(
            output wire          gpio3,
            output wire          gpio4,
 
+	   input wire           spi_miso,
+	   output wire          spi_mosi,
+	   output wire          spi_clk,
+	   output wire          spi_cs,
+
 	   input wire           cs,
 	   input wire           we,
 	   input wire  [7 : 0]  address,
@@ -83,6 +88,11 @@ module tk1(
   localparam ADDR_CPU_MON_CTRL  = 8'h60;
   localparam ADDR_CPU_MON_FIRST = 8'h61;
   localparam ADDR_CPU_MON_LAST  = 8'h62;
+
+  localparam ADDR_SPI_CTRL           = 8'h80;
+  localparam ADDR_SPI_CTRL_CS_BIT    = 0;
+  localparam ADDR_SPI_CTRL_START_BIT = 1;
+  localparam ADDR_SPI_DATA           = 8'h81;
 
 
   localparam TK1_NAME0    = 32'h746B3120; // "tk1 "
@@ -141,6 +151,34 @@ module tk1(
   reg          cpu_mon_first_we;
   reg [31 : 0] cpu_mon_last_reg;
   reg          cpu_mon_last_we;
+
+  reg          spi_cs_reg;
+  reg          spi_cs_we;
+
+  reg          spi_start_reg;
+  reg          spi_start_new;
+
+  reg [7 : 0]  spi_data_reg;
+  reg          spi_data_we;
+  reg          spi_data_load;
+  reg          spi_data_shift;
+
+  reg          spi_clk_reg;
+  reg          spi_clk_new;
+  reg          spi_clk_we;
+
+  reg [3 : 0]  spi_cycle_ctr_reg;
+  reg [3 : 0]  spi_cycle_ctr_new;
+  reg          spi_cycle_ctr_set;
+  reg          spi_cycle_ctr_we;
+
+  reg [2 : 0]  spi_shift_ctr_reg;
+  reg [2 : 0]  spi_shift_ctr_new;
+  reg          spi_shift_ctr_rst;
+  reg          spi_shift_ctr_we;
+
+  reg          spi_miso_sample0_reg;
+  reg          spi_miso_sample1_reg;
 
 
   //----------------------------------------------------------------
