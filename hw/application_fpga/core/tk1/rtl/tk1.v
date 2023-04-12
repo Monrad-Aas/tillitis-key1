@@ -209,6 +209,10 @@ module tk1(
   assign ram_aslr     = ram_aslr_reg;
   assign ram_scramble = ram_scramble_reg;
 
+  assign spi_cs   = spi_cs_reg;
+  assign spi_clk  = spi_clk_reg;
+  assign spi_mosi = spi_data_reg[7];
+
 
   //----------------------------------------------------------------
   // Module instance.
@@ -238,7 +242,7 @@ module tk1(
   always @ (posedge clk)
     begin : reg_update
       if (!reset_n) begin
-	switch_app_reg    <= 1'h0;
+	switch_app_reg     <= 1'h0;
         led_reg           <= 3'h6;
         gpio1_reg         <= 2'h0;
         gpio2_reg         <= 2'h0;
